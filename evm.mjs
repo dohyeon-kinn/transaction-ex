@@ -1,7 +1,7 @@
-import { createPublicClient, createWalletClient, http, parseEther, parseGwei, toHex, concatHex, toRlp, keccak256, isAddress } from 'viem';
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { concatHex, createPublicClient, http, keccak256, numberToHex, parseEther, toHex, toRlp } from 'viem';
 import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 import { mainnet } from 'viem/chains';
-import { secp256k1 } from '@noble/curves/secp256k1'
 
 // Mnemonic 생성
 const mnemonic = generateMnemonic(256);
