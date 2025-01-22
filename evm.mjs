@@ -1,18 +1,13 @@
 import { secp256k1 } from '@noble/curves/secp256k1';
-import { concatHex, createPublicClient, http, keccak256, numberToHex, parseEther, toHex, toRlp } from 'viem';
+import { concatHex, createPublicClient, createWalletClient, http, keccak256, numberToHex, parseEther, toHex, toRlp } from 'viem';
 import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 import { mainnet } from 'viem/chains';
 
 // Mnemonic 생성
 const mnemonic = generateMnemonic(256);
-console.log('1️⃣ Mnemonic:', mnemonic);
 
 // Mnemonic으로부터 Account (Private Key 포함) 생성
 const account = mnemonicToAccount(mnemonic);
-console.log('2️⃣ Private Key:', account.privateKey);
-
-// Public Key와 Address는 account 객체에 포함되어 있음
-console.log('3️⃣ & 4️⃣ Address:', account.publicKey, account.address);
 
 // Public Client 생성 (네트워크 연결용)
 const publicClient = createPublicClient({
@@ -86,27 +81,59 @@ const signature = {
   yParity: recovery, // 1 or 0, y좌표의 홀짝 여부
 }
 
-// publicKey 기반 검증
-const signatureIsValid = secp256k1.verify(
-  signature,
-  hash.slice(2),
-  account.publicKey.slice(2)
-)
+// signature와 transaction을 함께 serialized
+const r_ = signature.r.trim();
+const s_ = signature.s.trim();
+const yParity_ = (() => {
+  if (typeof yParity === 'number') return yParity ? toHex(1) : '0x';
+  if (v === 0n) return '0x';
+  if (v === 1n) return toHex(1);
+  return v === 27n ? '0x' : toHex(1);
+})();
+const toYParitySignatureArray = [yParity_, r_ === '0x00' ? '0x' : r_, s_ === '0x00' ? '0x' : s_];
 
-// Wallet Client 생성 (트랜잭션 서명용)
-// const walletClient = createWalletClient({
-//   account,
-//   chain: mainnet,
-//   transport: http()
-// });
+const serializedTransactionWithSignature = concatHex([
+  EIP_1559,
+  toRlp([
+    toHex(mainnet.id),
+    nonce ? toHex(transaction?.nonce) : '0x',
+    maxPriorityFeePerGas ? toHex(transaction?.maxPriorityFeePerGas) : '0x',
+    maxFeePerGas ? toHex(transaction?.maxFeePerGas) : '0x',
+    gas ? toHex(transaction?.gas) : '0x',
+    transaction?.to ?? '0x',
+    value ? toHex(transaction.value) : '0x',
+    transaction?.data ?? '0x',
+    serializedAccessList,
+    ...toYParitySignatureArray,
+  ]),
+]);
 
-// 트랜잭션 전송 (라이브러리 사용)
-// const hash = await walletClient.sendTransaction(transaction);
+// 트랜잭션 전송
+const walletClient = createWalletClient({
+  account,
+  chain: mainnet,
+  transport: http()
+});
+
+const hash = walletClient.request(
+  {
+    method: 'eth_sendRawTransaction',
+    params: [serializedTransactionWithSignature],
+  },
+  { retryCount: 0 },
+);
 
 // 트랜잭션 상태 확인
-// const receipt = await publicClient.waitForTransactionReceipt({ hash });
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
 // Balance 조회
-// const balance = await publicClient.getBalance({
-//   address: account.address,
-// });
+const balance = await publicClient.getBalance({
+  address: account.address,
+});
+
+// publicKey 기반 signature 검증
+// const signatureIsValid = secp256k1.verify(
+//   signature,
+//   hash.slice(2),
+//   account.publicKey.slice(2)
+// )
