@@ -115,7 +115,7 @@ const walletClient = createWalletClient({
   transport: http()
 });
 
-const hash = walletClient.request(
+const hash = await walletClient.request(
   {
     method: 'eth_sendRawTransaction',
     params: [serializedTransactionWithSignature],
