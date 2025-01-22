@@ -84,12 +84,7 @@ const signature = {
 // signature와 transaction을 함께 serialized
 const r_ = signature.r.trim();
 const s_ = signature.s.trim();
-const yParity_ = (() => {
-  if (typeof yParity === 'number') return yParity ? toHex(1) : '0x';
-  if (v === 0n) return '0x';
-  if (v === 1n) return toHex(1);
-  return v === 27n ? '0x' : toHex(1);
-})();
+const yParity_ = signature.yParity ? toHex(1) : '0x';
 const toYParitySignatureArray = [yParity_, r_ === '0x00' ? '0x' : r_, s_ === '0x00' ? '0x' : s_];
 
 const serializedTransactionWithSignature = concatHex([
